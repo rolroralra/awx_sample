@@ -1,0 +1,99 @@
+version: '2'
+services:
+  awx_web:
+    image: docker.io/ansible/awx_web:6.1.0
+    container_name: awx_web
+    depends_on:
+      - rabbitmq
+      - memcached
+      - postgres
+    ports:
+#      - "80:8052"
+      - "443:8043"
+    hostname: awxweb
+    user: root
+    restart: unless-stopped
+    volumes:
+      - "./projects:/var/lib/awx/projects:rw"
+      - "./config/SECRET_KEY:/etc/tower/SECRET_KEY"
+      - "./config/environment.sh:/etc/tower/conf.d/environment.sh"
+      - "./config/credentials.py:/etc/tower/conf.d/credentials.py"
+      - "./config/nginx.conf:/etc/nginx/nginx.conf"
+      - "./config/nginx.key:/etc/nginx/nginx.key"
+      - "./config/nginx.crt:/etc/nginx/nginx.crt"
+    environment:
+      http_proxy:
+      https_proxy:
+      no_proxy:
+    networks:
+      - default
+
+  awx_task:
+    image: docker.io/ansible/awx_task:6.1.0
+    container_name: awx_task
+    depends_on:
+      - rabbitmq
+      - memcached
+      - awx_web
+      - postgres
+    hostname: awx
+    user: root
+    restart: unless-stopped
+    volumes:
+      - "./projects:/var/lib/awx/projects:rw"
+      - "./config/ansible.cfg:/etc/ansible/ansible.cfg"
+      - "./config/SECRET_KEY:/etc/tower/SECRET_KEY"
+      - "./config/environment.sh:/etc/tower/conf.d/environment.sh"
+      - "./config/credentials.py:/etc/tower/conf.d/credentials.py"
+    environment:
+      http_proxy:
+      https_proxy:
+      no_proxy:
+    networks:
+      - default
+
+  rabbitmq:
+    image: rabbitmq:3.7.26
+    container_name: awx_rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_VHOST: "awx"
+      RABBITMQ_DEFAULT_USER: "guest"
+      RABBITMQ_DEFAULT_PASS: "awxpass"
+      RABBITMQ_ERLANG_COOKIE: cookiemonster
+      http_proxy:
+      https_proxy:
+      no_proxy:
+    networks:
+      - default
+
+  memcached:
+    image: memcached:1.6.6
+    container_name: awx_memcached
+    restart: unless-stopped
+    environment:
+      http_proxy:
+      https_proxy:
+      no_proxy:
+    networks:
+      - default
+
+  postgres:
+    image: postgres:9.6.18
+    container_name: awx_postgres
+    restart: unless-stopped
+    volumes:
+      - "postgres:/var/lib/postgresql/data:Z"
+    environment:
+      POSTGRES_USER: awx
+      POSTGRES_PASSWORD: awxpass
+      POSTGRES_DB: awx
+      PGDATA: /var/lib/postgresql/data/pgdata
+      http_proxy:
+      https_proxy:
+      no_proxy:
+    networks:
+      - default
+
+volumes:
+  postgres:
